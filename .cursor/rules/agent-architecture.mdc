@@ -1,0 +1,53 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 智能体架构指南
+
+## 智能体基类
+所有智能体都继承自基础智能体类：[src/agent/agent.py](mdc:src/agent/agent.py)
+
+## 核心智能体实现
+
+### 规划智能体 (Planning Agent)
+- 位置：[src/agent/planning_agent/](mdc:src/agent/planning_agent)
+- 功能：任务分解、工作流规划、智能体协调
+- 作为系统的大脑，负责整体任务管理
+
+### 深度分析智能体 (Deep Analyzer)
+- 位置：[src/agent/deep_analyzer_agent/](mdc:src/agent/deep_analyzer_agent)
+- 功能：深度信息分析、数据提取、洞察生成
+- 支持多种数据类型的分析处理
+
+### 深度研究智能体 (Deep Researcher)
+- 位置：[src/agent/deep_researcher_agent/](mdc:src/agent/deep_researcher_agent)
+- 功能：主题研究、信息检索、报告生成
+- 能够自动生成高质量的研究报告
+
+### 浏览器使用智能体 (Browser Use Agent)
+- 位置：[src/agent/browser_use_agent/](mdc:src/agent/browser_use_agent)
+- 功能：网页自动化、信息抓取、数据收集
+- 基于patchright实现浏览器控制
+
+## 智能体注册与管理
+- 智能体注册：[src/registry.py](mdc:src/registry.py)
+- 智能体初始化：[src/agent/__init__.py](mdc:src/agent/__init__.py)
+
+## 工具系统
+智能体使用的工具位于：[src/tools/](mdc:src/tools)
+- 每个智能体可以配备专门的工具集
+- 工具支持异步执行
+- 工具结果可以在智能体间共享
+
+## 协作模式
+1. **分层协作**：规划智能体统一调度底层智能体
+2. **异步执行**：支持并发任务处理
+3. **状态共享**：智能体间可以共享执行状态和结果
+4. **动态调度**：根据任务需求动态分配智能体
+
+## 扩展新智能体
+1. 继承基础智能体类
+2. 实现特定的功能方法
+3. 在注册表中注册新智能体
+4. 配置相应的工具集

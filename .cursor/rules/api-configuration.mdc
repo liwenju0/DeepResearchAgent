@@ -1,0 +1,127 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# API配置指南
+
+## 支持的LLM提供商
+
+### OpenAI API
+```env
+OPENAI_API_BASE=https://api.openai.com/v1
+OPENAI_API_KEY=your_openai_api_key
+```
+- 支持GPT-3.5、GPT-4等模型
+- 通过litellm统一接口调用
+
+### Anthropic API
+```env
+ANTHROPIC_API_BASE=https://api.anthropic.com
+ANTHROPIC_API_KEY=your_anthropic_api_key
+```
+- 支持Claude系列模型
+- 提供高质量的对话和分析能力
+
+### Google API
+```env
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/credentials.json
+GOOGLE_API_BASE=https://generativelanguage.googleapis.com
+GOOGLE_API_KEY=your_google_api_key
+```
+
+#### Google API设置步骤
+1. 获取API密钥：https://aistudio.google.com/app/apikey
+2. 安装Google Cloud SDK：`brew install --cask google-cloud-sdk`
+3. 初始化认证：
+   ```bash
+   gcloud init
+   gcloud auth application-default login
+   ```
+
+### 本地Qwen模型
+```env
+QWEN_API_BASE=http://localhost:8000/v1
+QWEN_API_KEY=any_placeholder_key
+```
+
+#### 启动本地Qwen服务
+```bash
+# 安装vllm
+pip install vllm
+
+# 启动服务
+vllm serve Qwen/Qwen2.5-1.5B-Instruct
+
+# 配置文件中设置
+model_id = "qwen"
+```
+
+## 模型配置
+
+### 配置文件位置
+- 模型配置：[src/models/](mdc:src/models/)
+- 系统配置：[src/config/](mdc:src/config/)
+- 示例配置：[configs/](mdc:configs/)
+
+### 模型选择策略
+1. **任务类型匹配**：根据任务选择合适的模型
+2. **成本考虑**：平衡性能和API调用成本
+3. **延迟要求**：考虑响应时间需求
+4. **本地vs云端**：根据隐私和性能需求选择
+
+## API代理配置
+
+### 代理服务
+- 代理实现：[src/proxy/](mdc:src/proxy/)
+- 支持负载均衡和故障转移
+- 可配置多个API端点
+
+### 配置示例
+```python
+# 多API端点配置
+api_endpoints = [
+    {"provider": "openai", "weight": 0.5},
+    {"provider": "anthropic", "weight": 0.3},
+    {"provider": "google", "weight": 0.2}
+]
+```
+
+## 错误处理和重试
+
+### API调用异常
+- 网络超时处理
+- API限流重试
+- 密钥失效检测
+- 自动故障转移
+
+### 监控和日志
+- API调用统计
+- 错误率监控
+- 成本追踪
+- 性能分析
+
+## 安全最佳实践
+
+### 密钥管理
+1. 使用环境变量存储API密钥
+2. 不要在代码中硬编码密钥
+3. 定期轮换API密钥
+4. 限制API密钥权限
+
+### 访问控制
+- 设置API调用频率限制
+- 监控异常调用模式
+- 实施访问日志记录
+
+## 性能优化
+
+### 缓存策略
+- 响应结果缓存
+- 模型预热
+- 连接池管理
+
+### 并发控制
+- 异步API调用
+- 请求队列管理
+- 资源限制配置

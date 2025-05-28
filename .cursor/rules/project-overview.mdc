@@ -1,0 +1,44 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# DeepResearchAgent 项目概览
+
+## 项目简介
+DeepResearchAgent是一个分层多智能体系统，专为深度研究任务和通用任务解决而设计。该框架利用顶层规划智能体来协调多个专业化的底层智能体。
+
+## 核心架构
+项目采用两层结构：
+
+### 顶层规划智能体
+- 负责理解、分解和规划给定任务的整体工作流程
+- 将任务分解为可管理的子任务并分配给适当的底层智能体
+- 动态协调智能体间的协作
+
+### 专业化底层智能体
+- **Deep Analyzer**: 深度分析器，执行输入信息的深度分析
+- **Deep Researcher**: 深度研究员，对指定主题进行彻底研究
+- **Browser Use**: 浏览器使用智能体，自动化浏览器操作
+
+## 主要文件结构
+- 入口点：[examples/run_example.py](mdc:examples/run_example.py)
+- 项目配置：[pyproject.toml](mdc:pyproject.toml)
+- 环境配置：[.env](mdc:.env) (需要创建)
+- 主要源码：[src/](mdc:src) 目录
+- 智能体实现：[src/agent/](mdc:src/agent) 目录
+- 工具集合：[src/tools/](mdc:src/tools) 目录
+- 配置管理：[src/config/](mdc:src/config) 目录
+
+## 环境设置
+项目使用Poetry进行依赖管理，支持Python 3.11+。主要依赖包括：
+- litellm: LLM API统一接口
+- anthropic: Anthropic API支持
+- crawl4ai: 网页爬取
+- patchright: 浏览器自动化
+- rich: 终端美化输出
+
+## 快速开始
+1. 安装环境：`make install`
+2. 配置API密钥到 `.env` 文件
+3. 运行示例：`python examples/run_example.py`
