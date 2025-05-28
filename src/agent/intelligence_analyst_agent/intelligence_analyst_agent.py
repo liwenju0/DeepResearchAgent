@@ -165,9 +165,8 @@ class IntelligenceAnalystAgent(AsyncMultiStepAgent):
         """执行一个步骤"""
         from src.memory import ActionStep, ToolCall
         from src.exception import AgentGenerationError, AgentParsingError
-        from src.models import ChatMessage
+        from src.models import ChatMessage, parse_json_if_needed
         from src.logger import LogLevel
-        from src.utils import parse_json_if_needed
         from rich.panel import Panel
         from rich.text import Text
         
