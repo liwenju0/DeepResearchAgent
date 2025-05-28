@@ -1,0 +1,7 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 激活开发环境
+source .venv/bin/activate

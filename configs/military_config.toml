@@ -1,0 +1,145 @@
+# 军事参谋智能体系统配置文件
+
+# 通用配置
+workdir = "workdir"
+tag = "military_staff_system"
+concurrency = 4
+log_path = "log.txt"
+download_path = "downloads_folder"
+use_local_proxy = false
+split = "validation"
+save_path = "military_results.jsonl"
+
+# 搜索工具配置
+[searcher_tool]
+engine = "Google"
+fallback_engines = ["DuckDuckGo", "Baidu", "Bing"]
+retry_delay = 10
+max_retries = 3
+lang = "zh"
+country = "cn"
+filter_year = 0
+num_results = 5
+fetch_content = false
+max_length = 50000
+
+# 深度研究工具配置
+[deep_researcher_tool]
+model_id = "claude37-sonnet-thinking"
+max_depth = 2
+max_insights = 20
+time_limit_seconds = 60
+max_follow_ups = 3
+
+# 浏览器工具配置
+[browser_tool]
+headless = false
+disable_security = true
+extra_chromium_args = []
+chrome_instance_path = ""
+wss_url = ""
+cdp_url = ""
+use_proxy = false
+max_length = 50000
+
+[browser_tool.proxy]
+server = "xxxx"
+username = "xxxx"
+password = "xxxx"
+
+# 深度分析工具配置
+[deep_analyzer_tool]
+analyzer_model_ids = ["gemini-2.5-pro"]
+summarizer_model_id = "gemini-2.5-pro"
+
+# 智能体配置
+[agent]
+name = "military_staff_system"
+use_hierarchical_agent = true
+use_military_system = true
+
+
+# 原有的通用配置
+[agent.planning_agent_config]
+model_id = "claude37-sonnet-thinking"
+name = "planning_agent"
+description = "A planning agent that can plan the steps to complete the task."
+max_steps = 20
+template_path = "src/agent/planning_agent/prompts/planning_agent.yaml"
+tools = ["planning"]
+managed_agents = ["deep_analyzer_agent", "deep_researcher_agent"]
+
+[agent.deep_analyzer_agent_config]
+model_id = "claude37-sonnet-thinking"
+name = "deep_analyzer_agent"
+description = "Performs systematic, step-by-step analysis..."
+max_steps = 1
+template_path = "src/agent/deep_analyzer_agent/prompts/deep_analyzer_agent.yaml"
+tools = ["deep_analyzer", "python_interpreter"]
+
+[agent.browser_use_agent_config]
+model_id = "gpt-4.1"
+name = "browser_use_agent"
+description = "Searches relevant web pages and interacts with them."
+max_steps = 5
+template_path = "src/agent/browser_use_agent/prompts/browser_use_agent.yaml"
+tools = ["auto_browser_use", "python_interpreter"]
+
+[agent.deep_researcher_agent_config]
+model_id = "claude37-sonnet-thinking"
+name = "deep_researcher_agent"
+description = "Conducts extensive web searches."
+max_steps = 3
+template_path = "src/agent/deep_researcher_agent/prompts/deep_researcher_agent.yaml"
+tools = ["deep_researcher", "python_interpreter"]
+
+# 军事参谋长配置
+[agent.military_chief_of_staff_agent_config]
+model_id = "claude37-sonnet-thinking"
+name = "military_chief_of_staff_agent"
+description = "军事参谋长，负责制定和协调军事作战计划，统筹各专业军事智能体的工作"
+max_steps = 30
+template_path = "src/agent/military_chief_of_staff_agent/prompts/military_chief_of_staff_agent.yaml"
+tools = ["military_map_analyzer", "intelligence_analyzer"]
+managed_agents = ["intelligence_analyst_agent", "operations_planning_agent", "map_analysis_agent", "logistics_agent"]
+
+# 情报分析专家配置
+[agent.intelligence_analyst_agent_config]
+model_id = "claude37-sonnet-thinking"
+name = "intelligence_analyst_agent"
+description = "情报分析专家，负责收集和分析军事情报，评估敌方能力和威胁"
+max_steps = 10
+template_path = "src/agent/intelligence_analyst_agent/prompts/intelligence_analyst_agent.yaml"
+tools = ["intelligence_analyzer", "deep_researcher"]
+
+# 作战规划专家配置
+[agent.operations_planning_agent_config]
+model_id = "claude37-sonnet-thinking"
+name = "operations_planning_agent"
+description = "作战规划专家，负责制定详细的作战方案和战术计划"
+max_steps = 15
+template_path = "src/agent/operations_planning_agent/prompts/operations_planning_agent.yaml"
+tools = ["military_map_analyzer"]
+
+# 地图分析专家配置
+[agent.map_analysis_agent_config]
+model_id = "claude37-sonnet-thinking"
+name = "map_analysis_agent"
+description = "地图分析专家，负责分析作战地区地形地貌，提供地形利用建议"
+max_steps = 8
+template_path = "src/agent/map_analysis_agent/prompts/map_analysis_agent.yaml"
+tools = ["military_map_analyzer"]
+
+# 后勤保障专家配置
+[agent.logistics_agent_config]
+model_id = "claude37-sonnet-thinking"
+name = "logistics_agent"
+description = "后勤保障专家，负责制定后勤保障计划，确保作战持续性"
+max_steps = 10
+template_path = "src/agent/logistics_agent/prompts/logistics_agent.yaml"
+tools = []
+
+# 数据集配置
+[dataset]
+name = "military_scenarios"
+path = "data/military" 

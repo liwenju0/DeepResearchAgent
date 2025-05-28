@@ -65,6 +65,9 @@ class AgentConfig(BaseModel):
 class HierarchicalAgentConfig(BaseModel):
     name: str = Field(default="agentscope", description="Name of the hierarchical agent")
     use_hierarchical_agent: bool = Field(default=True, description="Whether to use hierarchical agent")
+    use_military_system: bool = Field(default=False, description="Whether to use military staff system")
+    
+    # 原有的通用智能体配置
     planning_agent_config: AgentConfig = Field(default_factory=lambda: AgentConfig(
         model_id="claude37-sonnet-thinking",
         name="planning_agent",
@@ -97,6 +100,49 @@ class HierarchicalAgentConfig(BaseModel):
         max_steps=3,
         template_path=assemble_project_path("src/agent/deep_researcher_agent/prompts/deep_researcher_agent.yaml"),
         tools=["deep_researcher", "python_interpreter"],
+    ))
+    
+    # 军事智能体配置
+    military_chief_of_staff_agent_config: AgentConfig = Field(default_factory=lambda: AgentConfig(
+        model_id="claude37-sonnet-thinking",
+        name="military_chief_of_staff_agent",
+        description="军事参谋长，负责制定和协调军事作战计划，统筹各专业军事智能体的工作",
+        max_steps=30,
+        template_path=assemble_project_path("src/agent/military_chief_of_staff_agent/prompts/military_chief_of_staff_agent.yaml"),
+        tools=["military_map_analyzer", "intelligence_analyzer"],
+        managed_agents=["intelligence_analyst_agent", "operations_planning_agent", "map_analysis_agent", "logistics_agent"],
+    ))
+    intelligence_analyst_agent_config: AgentConfig = Field(default_factory=lambda: AgentConfig(
+        model_id="claude37-sonnet-thinking",
+        name="intelligence_analyst_agent",
+        description="情报分析专家，负责收集和分析军事情报，评估敌方能力和威胁",
+        max_steps=10,
+        template_path=assemble_project_path("src/agent/intelligence_analyst_agent/prompts/intelligence_analyst_agent.yaml"),
+        tools=["intelligence_analyzer", "deep_researcher"],
+    ))
+    operations_planning_agent_config: AgentConfig = Field(default_factory=lambda: AgentConfig(
+        model_id="claude37-sonnet-thinking",
+        name="operations_planning_agent",
+        description="作战规划专家，负责制定详细的作战方案和战术计划",
+        max_steps=15,
+        template_path=assemble_project_path("src/agent/operations_planning_agent/prompts/operations_planning_agent.yaml"),
+        tools=["military_map_analyzer"],
+    ))
+    map_analysis_agent_config: AgentConfig = Field(default_factory=lambda: AgentConfig(
+        model_id="claude37-sonnet-thinking",
+        name="map_analysis_agent",
+        description="地图分析专家，负责分析作战地区地形地貌，提供地形利用建议",
+        max_steps=8,
+        template_path=assemble_project_path("src/agent/map_analysis_agent/prompts/map_analysis_agent.yaml"),
+        tools=["military_map_analyzer"],
+    ))
+    logistics_agent_config: AgentConfig = Field(default_factory=lambda: AgentConfig(
+        model_id="claude37-sonnet-thinking",
+        name="logistics_agent",
+        description="后勤保障专家，负责制定后勤保障计划，确保作战持续性",
+        max_steps=10,
+        template_path=assemble_project_path("src/agent/logistics_agent/prompts/logistics_agent.yaml"),
+        tools=[],
     ))
 
 class DatasetConfig(BaseModel):
@@ -165,13 +211,34 @@ class Config(BaseModel):
         browser_use_agent_config.template_path = assemble_project_path(config["agent"]["browser_use_agent_config"]["template_path"])
         deep_researcher_agent_config = AgentConfig(**config["agent"]["deep_researcher_agent_config"])
         deep_researcher_agent_config.template_path = assemble_project_path(config["agent"]["deep_researcher_agent_config"]["template_path"])
+        
+        # 军事智能体配置（如果存在）
+        military_configs = {}
+        if "military_chief_of_staff_agent_config" in config["agent"]:
+            military_configs["military_chief_of_staff_agent_config"] = AgentConfig(**config["agent"]["military_chief_of_staff_agent_config"])
+            military_configs["military_chief_of_staff_agent_config"].template_path = assemble_project_path(config["agent"]["military_chief_of_staff_agent_config"]["template_path"])
+        if "intelligence_analyst_agent_config" in config["agent"]:
+            military_configs["intelligence_analyst_agent_config"] = AgentConfig(**config["agent"]["intelligence_analyst_agent_config"])
+            military_configs["intelligence_analyst_agent_config"].template_path = assemble_project_path(config["agent"]["intelligence_analyst_agent_config"]["template_path"])
+        if "operations_planning_agent_config" in config["agent"]:
+            military_configs["operations_planning_agent_config"] = AgentConfig(**config["agent"]["operations_planning_agent_config"])
+            military_configs["operations_planning_agent_config"].template_path = assemble_project_path(config["agent"]["operations_planning_agent_config"]["template_path"])
+        if "map_analysis_agent_config" in config["agent"]:
+            military_configs["map_analysis_agent_config"] = AgentConfig(**config["agent"]["map_analysis_agent_config"])
+            military_configs["map_analysis_agent_config"].template_path = assemble_project_path(config["agent"]["map_analysis_agent_config"]["template_path"])
+        if "logistics_agent_config" in config["agent"]:
+            military_configs["logistics_agent_config"] = AgentConfig(**config["agent"]["logistics_agent_config"])
+            military_configs["logistics_agent_config"].template_path = assemble_project_path(config["agent"]["logistics_agent_config"]["template_path"])
+        
         self.agent = HierarchicalAgentConfig(
             name=config["agent"]["name"],
             use_hierarchical_agent=config["agent"]["use_hierarchical_agent"],
+            use_military_system=config["agent"].get("use_military_system", False),
             planning_agent_config=planning_agent_config,
             deep_analyzer_agent_config=deep_analyzer_agent_config,
             browser_use_agent_config=browser_use_agent_config,
             deep_researcher_agent_config=deep_researcher_agent_config,
+            **military_configs
         ) 
         
         # Dataset Config
