@@ -109,7 +109,7 @@ class HierarchicalAgentConfig(BaseModel):
         description="军事参谋长，负责制定和协调军事作战计划，统筹各专业军事智能体的工作",
         max_steps=30,
         template_path=assemble_project_path("src/agent/military_chief_of_staff_agent/prompts/military_chief_of_staff_agent.yaml"),
-        tools=[],
+        tools=["planning"],
         managed_agents=["intelligence_analyst_agent", "operations_planning_agent", "map_analysis_agent", "logistics_agent"],
     ))
     intelligence_analyst_agent_config: AgentConfig = Field(default_factory=lambda: AgentConfig(
