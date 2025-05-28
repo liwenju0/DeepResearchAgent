@@ -4,7 +4,7 @@ from src.tools import AsyncTool
 from src.base.async_multistep_agent import (PromptTemplates, populate_template, AsyncMultiStepAgent)
 from src.memory import AgentMemory
 from src.logger import LogLevel
-from src.models import Model
+from src.models import Model, parse_json_if_needed
 from src.registry import register_agent
 from src.utils import assemble_project_path
 
@@ -167,7 +167,6 @@ class MapAnalysisAgent(AsyncMultiStepAgent):
         from src.exception import AgentGenerationError, AgentParsingError
         from src.models import ChatMessage
         from src.logger import LogLevel
-        from src.utils import parse_json_if_needed
         from rich.panel import Panel
         from rich.text import Text
         

@@ -5,6 +5,7 @@ from src.tools.python_interpreter import PythonInterpreterTool
 from src.tools.auto_browser import AutoBrowserUseTool
 from src.tools.planning import PlanningTool
 from src.tools.military_map_analyzer import MilitaryMapAnalyzer
+from src.tools.military_image_map_analyzer import MilitaryImageMapAnalyzer
 from src.tools.intelligence_analyzer import IntelligenceAnalyzer
 
 
@@ -18,5 +19,6 @@ __all__ = [
     "AutoBrowserUseTool",
     "PlanningTool",
     "MilitaryMapAnalyzer",
+    "MilitaryImageMapAnalyzer",
     "IntelligenceAnalyzer",
 ]

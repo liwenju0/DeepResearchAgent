@@ -128,7 +128,7 @@ name = "map_analysis_agent"
 description = "地图分析专家，负责分析作战地区地形地貌，提供地形利用建议"
 max_steps = 8
 template_path = "src/agent/map_analysis_agent/prompts/map_analysis_agent.yaml"
-tools = ["military_map_analyzer"]
+tools = ["military_map_analyzer", "military_image_map_analyzer"]
 
 # 后勤保障专家配置
 [agent.logistics_agent_config]
