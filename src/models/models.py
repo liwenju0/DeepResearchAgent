@@ -213,7 +213,13 @@ class ModelManager(metaclass=Singleton):
                                                 remote_api_key_name="ANTHROPIC_API_KEY")
             api_base = self._check_local_api_base(local_api_base_name="ANTHROPIC_API_BASE", 
                                                     remote_api_base_name="ANTHROPIC_API_BASE")
-            
+            '''FIXME:
+            这里为了调用openrouter，做了一些特殊操作
+            1、model_id需要使用openrouter的格式，即openrouter/model_provider/model_name
+            2、需要创建openai的client，传入api base和api key
+            3、创建LiteLLMModel时，传入http_client，同时，还需要传入api key，否则会报错。
+
+            '''
             models = [
                 {
                     "model_name": "claude37-sonnet",
