@@ -110,7 +110,7 @@ name = "intelligence_analyst_agent"
 description = "情报分析专家，负责收集和分析军事情报，评估敌方能力和威胁"
 max_steps = 10
 template_path = "src/agent/intelligence_analyst_agent/prompts/intelligence_analyst_agent.yaml"
-tools = ["intelligence_analyzer", "deep_researcher"]
+tools = ["intelligence_analyzer"]
 
 # 作战规划专家配置
 [agent.operations_planning_agent_config]

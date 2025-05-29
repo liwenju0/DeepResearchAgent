@@ -217,11 +217,11 @@ class ModelManager(metaclass=Singleton):
             models = [
                 {
                     "model_name": "claude37-sonnet",
-                    "model_id": "anthropic/claude-3-7-sonnet-20250219",
+                    "model_id": "anthropic/claude-3.7-sonnet",
                 },
                 {
                     "model_name": "claude37-sonnet-thinking",
-                    "model_id": "anthropic/claude-3-7-sonnet-20250219",
+                    "model_id": "anthropic/claude-3.7-sonnet",
                 },
             ]
             
