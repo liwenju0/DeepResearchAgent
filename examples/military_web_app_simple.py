@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 军事参谋智能体系统 Web 界面 - 简化版本
-支持实时进度显示
+支持实时进度显示（通过监听日志文件）
 """
 
 import asyncio
@@ -14,6 +14,7 @@ from typing import Optional
 from PIL import Image
 import threading
 import queue
+import re
 
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -22,7 +23,142 @@ from src.config import config
 from src.models import model_manager
 from src.agent import create_agent
 from src.logger import logger
-from src.memory import ActionStep, PlanningStep, FinalAnswerStep
+
+class LogFileMonitor:
+    """日志文件监控器"""
+    
+    def __init__(self, log_file_path: str):
+        self.log_file_path = log_file_path
+        self.last_position = 0
+        self.is_monitoring = False
+        self.progress_queue = queue.Queue()
+        
+    def start_monitoring(self):
+        """开始监控日志文件"""
+        self.is_monitoring = True
+        # 获取当前文件位置
+        if os.path.exists(self.log_file_path):
+            with open(self.log_file_path, 'r', encoding='utf-8') as f:
+                f.seek(0, 2)  # 移动到文件末尾
+                self.last_position = f.tell()
+        else:
+            self.last_position = 0
+            
+        # 启动监控线程
+        monitor_thread = threading.Thread(target=self._monitor_log_file, daemon=True)
+        monitor_thread.start()
+    
+    def stop_monitoring(self):
+        """停止监控"""
+        self.is_monitoring = False
+        
+    def _monitor_log_file(self):
+        """监控日志文件变化"""
+        while self.is_monitoring:
+            try:
+                if os.path.exists(self.log_file_path):
+                    with open(self.log_file_path, 'r', encoding='utf-8') as f:
+                        f.seek(self.last_position)
+                        new_lines = f.readlines()
+                        self.last_position = f.tell()
+                        
+                        for line in new_lines:
+                            if line.strip():  # 忽略空行
+                                # 格式化日志行并添加到队列
+                                formatted_line = self._format_log_line(line.strip())
+                                if formatted_line:
+                                    self.progress_queue.put(formatted_line)
+                
+                time.sleep(0.5)  # 每0.5秒检查一次
+            except Exception as e:
+                # 日志错误不影响监控
+                time.sleep(1)
+                
+    def _format_log_line(self, line: str) -> str:
+        line = line.strip()
+        """格式化日志行"""
+        try:
+            # 提取时间戳和日志内容
+            if " - " in line and "INFO" in line:
+                # 标准日志格式: 2025-05-29 14:45:45 - logger:INFO: logger.py:77 - 内容
+                parts = line.split(" - ")
+                if len(parts) >= 3:
+                    timestamp = parts[0]
+                    log_content = " - ".join(parts[3:]) if len(parts) > 3 else parts[2]
+                    
+                    # 简化时间戳显示
+                    try:
+                        time_part = timestamp.split()[1] if ' ' in timestamp else timestamp
+                        formatted_time = time_part[:8]  # 只显示HH:MM:SS
+                    except:
+                        formatted_time = timestamp
+                    
+                    # 智能识别日志内容类型并添加适当的emoji
+                    emoji = self._get_emoji_for_log(log_content)
+                    
+                    return f"**[{formatted_time}]** {emoji} {log_content}"
+            if (
+                line.startswith("Plan:")
+                or line.startswith("Status:")
+                or line.startswith("Steps:")
+                or line.startswith("0.")
+                or line.startswith("1.")
+                or line.startswith("2.")
+                or line.startswith("3.")
+                or line.startswith("4.")
+                or line.startswith("5.")
+                or line.startswith("6.")
+                or line.startswith("7.")
+                or line.startswith("8.")
+                or line.startswith("9.")
+                or line.startswith("Notes:")
+            ):
+                return line
+                    
+            return None
+        except Exception:
+            return None
+    
+    def _get_emoji_for_log(self, content: str) -> str:
+        """根据日志内容获取对应的emoji"""
+        content_lower = content.lower()
+        
+        if "开始" in content or "start" in content_lower:
+            return "🚀"
+        elif "完成" in content or "finish" in content_lower or "completed" in content_lower:
+            return "✅"
+        elif "分析" in content or "analyz" in content_lower:
+            return "🔍"
+        elif "规划" in content or "planning" in content_lower:
+            return "📋"
+        elif "情报" in content or "intelligence" in content_lower:
+            return "🕵️"
+        elif "作战" in content or "operation" in content_lower:
+            return "⚔️"
+        elif "地图" in content or "map" in content_lower:
+            return "🗺️"
+        elif "后勤" in content or "logistics" in content_lower:
+            return "📦"
+        elif "步骤" in content or "step" in content_lower:
+            return "🔄"
+        elif "错误" in content or "error" in content_lower:
+            return "❌"
+        elif "警告" in content or "warning" in content_lower:
+            return "⚠️"
+        elif "最终" in content or "final" in content_lower:
+            return "🎯"
+        else:
+            return "📝"
+    
+    def get_new_logs(self) -> list:
+        """获取新的日志条目"""
+        logs = []
+        while not self.progress_queue.empty():
+            try:
+                logs.append(self.progress_queue.get_nowait())
+            except queue.Empty:
+                break
+        return logs
 
 class MilitaryWebApp:
     """军事参谋Web应用类 - 简化版"""
@@ -31,7 +167,7 @@ class MilitaryWebApp:
         self.military_chief = None
         self.current_logs = []
         self.is_running = False
-        self.progress_queue = queue.Queue()
+        self.log_monitor = None
         
     async def initialize_system(self):
         """初始化军事参谋系统"""
@@ -40,6 +176,11 @@ class MilitaryWebApp:
             logger.init_logger(config.log_path)
             model_manager.init_models()
             self.military_chief = create_agent()
+            
+            # 初始化日志监控器
+            log_file_path = "/eightT/DeepResearchAgent/workdir/military_staff_system/log.txt"
+            self.log_monitor = LogFileMonitor(log_file_path)
+            
             return "✅ 军事参谋系统初始化成功"
         except Exception as e:
             logger.error(f"系统初始化失败: {e}")
@@ -81,139 +222,6 @@ class MilitaryWebApp:
         except Exception as e:
             return f"❌ 地形图处理失败: {str(e)}"
     
-    def create_step_callback(self):
-        """创建智能体步骤回调函数"""
-        def step_callback(step, agent=None):
-            """智能体步骤回调函数"""
-            try:
-                if isinstance(step, ActionStep):
-                    if hasattr(step, 'step_number') and step.step_number:
-                        message = f"🔄 执行步骤 {step.step_number}"
-                        
-                        # 根据步骤内容生成更详细的进度信息
-                        if hasattr(step, 'model_output') and step.model_output:
-                            output_str = str(step.model_output)
-                            if "final_answer" in output_str:
-                                message = f"✅ 步骤 {step.step_number}: 正在生成最终作战方案"
-                            elif "调用工具" in output_str or "Calling tool" in output_str or "call tool" in output_str.lower():
-                                # 尝试提取工具名称
-                                if "intelligence_analyst_agent" in output_str:
-                                    message = f"🔍 步骤 {step.step_number}: 咨询情报分析专家"
-                                elif "operations_planning_agent" in output_str:
-                                    message = f"⚔️ 步骤 {step.step_number}: 咨询作战规划专家"
-                                elif "map_analysis_agent" in output_str:
-                                    message = f"🗺️ 步骤 {step.step_number}: 咨询地图分析专家"
-                                elif "logistics_agent" in output_str:
-                                    message = f"📦 步骤 {step.step_number}: 咨询后勤保障专家"
-                                elif "planning" in output_str:
-                                    message = f"📋 步骤 {step.step_number}: 更新任务计划"
-                                else:
-                                    message = f"🛠️ 步骤 {step.step_number}: 正在调用专业工具"
-                            else:
-                                message = f"🤔 步骤 {step.step_number}: 正在分析和规划"
-                        
-                        # 检查是否有有用的观察结果（特别是planning工具的输出）
-                        if hasattr(step, 'observations') and step.observations:
-                            obs = str(step.observations)
-                            
-                            # 检查是否是planning工具的进度更新
-                            if "Progress:" in obs and "steps completed" in obs and "Status:" in obs:
-                                # 提取并格式化进度信息
-                                formatted_progress = self.format_planning_progress(obs)
-                                if formatted_progress:
-                                    self.progress_queue.put(formatted_progress)
-                                    return  # 已经添加了格式化的进度信息，不需要重复
-                            
-                            # 对于其他类型的观察结果，提供简要预览
-                            obs_preview = obs[:100]
-                            if len(obs) > 100:
-                                obs_preview += "..."
-                            message += f"\n📝 收到反馈: {obs_preview}"
-                        
-                        self.progress_queue.put(message)
-                        
-                elif isinstance(step, PlanningStep):
-                    message = "📋 正在制定整体作战计划..."
-                    if hasattr(step, 'plan') and step.plan:
-                        plan_preview = str(step.plan)[:80]
-                        message += f"\n计划要点: {plan_preview}..."
-                    self.progress_queue.put(message)
-                    
-                elif isinstance(step, FinalAnswerStep):
-                    self.progress_queue.put("🎯 作战方案制定完成！")
-                    
-            except Exception as e:
-                logger.error(f"步骤回调错误: {e}")
-        
-        return step_callback
-    
-    def format_planning_progress(self, planning_output: str) -> str:
-        """格式化planning工具的进度输出"""
-        try:
-            lines = planning_output.strip().split('\n')
-            
-            # 查找关键信息行
-            progress_line = ""
-            status_line = ""
-            steps_start_idx = -1
-            
-            for i, line in enumerate(lines):
-                if line.startswith("Progress:"):
-                    progress_line = line
-                elif line.startswith("Status:"):
-                    status_line = line
-                elif line.strip() == "Steps:":
-                    steps_start_idx = i + 1
-                    break
-            
-            if not progress_line or not status_line or steps_start_idx == -1:
-                return ""  # 无法解析的格式
-            
-            # 构建格式化的进度显示
-            formatted = "📊 **作战计划执行进度**\n\n"
-            formatted += f"🎯 {progress_line}\n"
-            formatted += f"📈 {status_line}\n\n"
-            formatted += "**任务执行状态:**\n"
-            
-            # 解析步骤信息
-            for i in range(steps_start_idx, len(lines)):
-                line = lines[i].strip()
-                if not line:
-                    continue
-                
-                # 跳过Notes行
-                if line.startswith("Notes:"):
-                    continue
-                
-                # 解析步骤行格式: "0. [✓] 步骤描述"
-                # 使用正则表达式匹配数字和状态符号
-                import re
-                match = re.match(r'(\d+)\.\s*\[([✓→!\s]*)\]\s*(.*)', line)
-                if match:
-                    step_num, status_symbol, description = match.groups()
-                    
-                    # 映射状态符号到更友好的显示
-                    if "✓" in status_symbol:
-                        status_emoji = "✅"
-                        status_text = "已完成"
-                    elif "→" in status_symbol:
-                        status_emoji = "🔄"
-                        status_text = "进行中"
-                    elif "!" in status_symbol:
-                        status_emoji = "⚠️"
-                        status_text = "受阻"
-                    else:  # 空白或其他
-                        status_emoji = "⏳"
-                        status_text = "待开始"
-                    
-                    formatted += f"{status_emoji} **{status_text}**: {description}\n"
-            
-            return formatted
-            
-        except Exception as e:
-            logger.error(f"格式化planning进度时出错: {e}")
-            return ""
-    
     async def analyze_military_task(self, task_description: str, terrain_image: Optional[Image.Image]):
         """分析军事任务"""
         # 检查智能体是否已初始化
@@ -249,45 +257,51 @@ class MilitaryWebApp:
                 full_task += f"\n\n地形图信息：\n{terrain_info}"
                 yield self.add_log("📊 地形信息已整合到任务描述"), ""
             
-            # 步骤4：启动智能体分析
+            # 步骤4：启动日志监控
+            if self.log_monitor:
+                self.log_monitor.start_monitoring()
+                yield self.add_log("👁️ 开始监控智能体日志"), ""
+            
+            # 步骤5：启动智能体分析
             yield self.add_log("🧠 军事参谋长开始分析任务"), ""
+            yield self.add_log("👥 正在协调各专业军事智能体..."), ""
             await asyncio.sleep(0.3)
             
-            # 添加步骤回调到智能体
-            step_callback = self.create_step_callback()
-            if not hasattr(self.military_chief, 'step_callbacks'):
-                self.military_chief.step_callbacks = []
-            self.military_chief.step_callbacks.append(step_callback)
-            
-            yield self.add_log("👥 正在协调各专业军事智能体..."), ""
-            
-            # 执行智能体分析 - 简化为标准调用方式
+            # 执行智能体分析
             result = ""
             
             # 启动智能体分析并监控进度
             analysis_task = asyncio.create_task(self.military_chief(full_task))
             
-            # 监控实际进度，不再使用模拟进度
-            last_progress_time = time.time()
+            # 监控日志文件实时进度
+            last_log_time = time.time()
             while not analysis_task.done():
-                # 检查进度队列中的实际更新
-                progress_updated = False
-                while not self.progress_queue.empty():
-                    try:
-                        progress_msg = self.progress_queue.get_nowait()
-                        yield self.add_log(progress_msg), ""
-                        progress_updated = True
-                        last_progress_time = time.time()
-                    except queue.Empty:
-                        break
+                # 检查日志监控器中的新日志
+                if self.log_monitor:
+                    new_logs = self.log_monitor.get_new_logs()
+                    for log_entry in new_logs:
+                        self.current_logs.append(log_entry)
+                        yield "\n\n".join(self.current_logs), ""
+                        last_log_time = time.time()
                 
-                # 如果长时间没有进度更新，显示等待信息
-                if not progress_updated and time.time() - last_progress_time > 10:
+                # 如果长时间没有日志更新，显示等待信息
+                if time.time() - last_log_time > 15:
                     yield self.add_log("⏳ 智能体正在深度分析中，请耐心等待..."), ""
-                    last_progress_time = time.time()
+                    last_log_time = time.time()
                 
                 # 等待一段时间再检查
-                await asyncio.sleep(1)
+                await asyncio.sleep(0.8)
+            
+            # 停止日志监控
+            if self.log_monitor:
+                self.log_monitor.stop_monitoring()
+            
+            # 获取最后的日志更新
+            if self.log_monitor:
+                new_logs = self.log_monitor.get_new_logs()
+                for log_entry in new_logs:
+                    self.current_logs.append(log_entry)
+                    yield "\n\n".join(self.current_logs), ""
             
             # 获取结果
             try:
@@ -302,16 +316,14 @@ class MilitaryWebApp:
                 yield self.add_log(error_msg), error_msg
                 logger.error(f"智能体分析错误: {analysis_error}")
             
-            # 移除回调
-            if step_callback in self.military_chief.step_callbacks:
-                self.military_chief.step_callbacks.remove(step_callback)
-            
         except Exception as e:
             error_msg = f"❌ 分析失败: {str(e)}"
             yield self.add_log(error_msg), error_msg
             logger.error(f"军事任务分析失败: {e}")
         finally:
             self.is_running = False
+            if self.log_monitor:
+                self.log_monitor.stop_monitoring()
 
     def extract_final_answer(self, result) -> str:
         """提取并清理智能体响应中的final_answer内容"""
@@ -324,6 +336,16 @@ class MilitaryWebApp:
         # 查找final_answer内容 - 首先检查是否是字典格式且包含answer
         if isinstance(result, dict) and 'answer' in result:
             return result['answer']
+
+        try:
+            result_str = result_str[result_str.find("{"):result_str.find("}")+1]
+            import json
+            result = json.loads(result_str)
+            if 'answer' in result:
+                return result['answer']
+        except Exception as e:
+            logger.error(f"提取final_answer时出错: {e}")
+            
         
         # 从字符串中提取answer字段 - 处理复杂的嵌套结构
         import re
@@ -540,6 +562,13 @@ def create_interface():
                     elem_classes=["status-box"]
                 )
                 init_btn = gr.Button("🚀 初始化系统", variant="primary")
+         # 预设任务示例
+        with gr.Row():
+            gr.Markdown("## 🎯 快速开始示例")
+        with gr.Row():
+            example_1 = gr.Button("山地防御作战", variant="secondary")
+            example_2 = gr.Button("城市攻坚作战", variant="secondary")
+            example_3 = gr.Button("海岸登陆作战", variant="secondary")
         
         # 主要功能区域
         with gr.Row():
@@ -587,13 +616,7 @@ def create_interface():
                     elem_classes=["result-box"]
                 )
         
-        # 预设任务示例
-        with gr.Row():
-            gr.Markdown("## 🎯 快速开始示例")
-        with gr.Row():
-            example_1 = gr.Button("山地防御作战", variant="secondary")
-            example_2 = gr.Button("城市攻坚作战", variant="secondary")
-            example_3 = gr.Button("海岸登陆作战", variant="secondary")
+       
         
         # 使用说明
         with gr.Row():
@@ -725,7 +748,7 @@ def main():
     # 启动Web服务
     interface.launch(
         server_name="0.0.0.0",
-        server_port=7860,
+        server_port=19085,
         share=False,
         debug=True,
         show_error=True,

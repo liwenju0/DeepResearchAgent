@@ -210,6 +210,7 @@ class GoogleSearchTool(Tool):
                 "type": "integer",
                 "description": "Optionally restrict results to a certain year",
                 "default": None,
+                "nullable": True,
             },
         },
         "required": ["query"],
@@ -231,68 +232,117 @@ class GoogleSearchTool(Tool):
         if self.api_key is None:
             raise ValueError(f"Missing API key. Make sure you have '{api_key_env_name}' in your env variables.")
 
-    def forward(self, query: str, filter_year: Optional[int] = None) -> str:
+    def forward(self, query: str, filter_year: Optional[int] = None) -> ToolResult:
         import requests
 
-        if self.provider == "serpapi":
-            params = {
-                "q": query,
-                "api_key": self.api_key,
-                "engine": "google",
-                "google_domain": "google.com",
-            }
-            base_url = "https://serpapi.com/search.json"
-        else:
-            params = {
-                "q": query,
-                "api_key": self.api_key,
-            }
-            base_url = "https://google.serper.dev/search"
-        if filter_year is not None:
-            params["tbs"] = f"cdr:1,cd_min:01/01/{filter_year},cd_max:12/31/{filter_year}"
-
-        response = requests.get(base_url, params=params)
-
-        if response.status_code == 200:
-            results = response.json()
-        else:
-            raise ValueError(response.json())
-
-        if self.organic_key not in results.keys():
-            if filter_year is not None:
-                raise Exception(
-                    f"No results found for query: '{query}' with filtering on year={filter_year}. Use a less restrictive query or do not filter on year."
-                )
+        try:
+            if self.provider == "serpapi":
+                params = {
+                    "q": query,
+                    "api_key": self.api_key,
+                    "engine": "google",
+                    "google_domain": "google.com",
+                }
+                base_url = "https://serpapi.com/search.json"
+                if filter_year is not None:
+                    params["tbs"] = f"cdr:1,cd_min:01/01/{filter_year},cd_max:12/31/{filter_year}"
+                
+                response = requests.get(base_url, params=params, timeout=20)
             else:
-                raise Exception(f"No results found for query: '{query}'. Use a less restrictive query.")
-        if len(results[self.organic_key]) == 0:
-            year_filter_message = f" with filter year={filter_year}" if filter_year is not None else ""
-            return f"No results found for '{query}'{year_filter_message}. Try with a more general query, or remove the year filter."
+                # Serper API 使用 POST 请求
+                headers = {
+                    'X-API-KEY': self.api_key,
+                    'Content-Type': 'application/json'
+                }
+                data = {
+                    "q": query,
+                    "gl": "us",  # 地理位置
+                    "hl": "en",  # 语言
+                    "num": 10    # 结果数量
+                }
+                if filter_year is not None:
+                    data["tbs"] = f"cdr:1,cd_min:01/01/{filter_year},cd_max:12/31/{filter_year}"
+                
+                base_url = "https://google.serper.dev/search"
+                response = requests.post(base_url, headers=headers, json=data, timeout=20)
 
-        web_snippets = []
-        if self.organic_key in results:
-            for idx, page in enumerate(results[self.organic_key]):
-                date_published = ""
-                if "date" in page:
-                    date_published = "\nDate published: " + page["date"]
+            response.raise_for_status()
+            
+            if response.status_code == 200:
+                results = response.json()
+            else:
+                return ToolResult(
+                    output=None,
+                    error=f"API request failed with status {response.status_code}: {response.text}"
+                )
 
-                source = ""
-                if "source" in page:
-                    source = "\nSource: " + page["source"]
+            if self.organic_key not in results.keys():
+                if filter_year is not None:
+                    error_msg = f"No results found for query: '{query}' with filtering on year={filter_year}. Use a less restrictive query or do not filter on year."
+                else:
+                    error_msg = f"No results found for query: '{query}'. Use a less restrictive query."
+                return ToolResult(
+                    output=None,
+                    error=error_msg
+                )
+                
+            if len(results[self.organic_key]) == 0:
+                year_filter_message = f" with filter year={filter_year}" if filter_year is not None else ""
+                return ToolResult(
+                    output=f"No results found for '{query}'{year_filter_message}. Try with a more general query, or remove the year filter.",
+                    error=None
+                )
 
-                snippet = ""
-                if "snippet" in page:
-                    snippet = "\n" + page["snippet"]
+            web_snippets = []
+            if self.organic_key in results:
+                for idx, page in enumerate(results[self.organic_key]):
+                    date_published = ""
+                    if "date" in page:
+                        date_published = "\nDate published: " + page["date"]
 
-                redacted_version = f"{idx}. [{page['title']}]({page['link']}){date_published}{source}\n{snippet}"
-                web_snippets.append(redacted_version)
+                    source = ""
+                    if "source" in page:
+                        source = "\nSource: " + page["source"]
 
-        result = ToolResult(
-            output="## Search Results\n" + "\n\n".join(web_snippets),
-            error=None,
-        )
+                    snippet = ""
+                    if "snippet" in page:
+                        snippet = "\n" + page["snippet"]
 
-        return result
+                    redacted_version = f"{idx}. [{page['title']}]({page['link']}){date_published}{source}\n{snippet}"
+                    web_snippets.append(redacted_version)
+
+            result = ToolResult(
+                output="## Search Results\n" + "\n\n".join(web_snippets),
+                error=None,
+            )
+
+            return result
+            
+        except requests.exceptions.Timeout:
+            return ToolResult(
+                output=None,
+                error="Request timed out. Please try again later."
+            )
+        except requests.exceptions.ConnectionError:
+            return ToolResult(
+                output=None,
+                error="Connection error. Please check your internet connection and API key."
+            )
+        except requests.exceptions.HTTPError as e:
+            return ToolResult(
+                output=None,
+                error=f"HTTP error: {e}. Please check your API key and try again."
+            )
+        except requests.exceptions.RequestException as e:
+            return ToolResult(
+                output=None,
+                error=f"Request error: {e}"
+            )
+        except Exception as e:
+            return ToolResult(
+                output=None,
+                error=f"Unexpected error: {str(e)}"
+            )
 
 
 class VisitWebpageTool(Tool):
