@@ -217,13 +217,19 @@ class ModelManager(metaclass=Singleton):
             models = [
                 {
                     "model_name": "claude37-sonnet",
-                    "model_id": "anthropic/claude-3.7-sonnet",
+                    "model_id": "openrouter/anthropic/claude-3.7-sonnet",
                 },
                 {
                     "model_name": "claude37-sonnet-thinking",
-                    "model_id": "anthropic/claude-3.7-sonnet",
+                    "model_id": "openrouter/anthropic/claude-3.7-sonnet",
                 },
             ]
+
+            client = OpenAI(
+                api_key=api_key,
+                base_url=api_base,
+                http_client=HTTP_CLIENT,
+            )
             
             for model in models:
                 model_name = model["model_name"]
@@ -231,7 +237,7 @@ class ModelManager(metaclass=Singleton):
                 model = LiteLLMModel(
                     model_id=model_id,
                     api_key=api_key,
-                    api_base=api_base,
+                    http_client=client,
                     custom_role_conversions=custom_role_conversions,
                 )
                 self.registed_models[model_name] = model
