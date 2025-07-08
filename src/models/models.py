@@ -215,9 +215,9 @@ class ModelManager(metaclass=Singleton):
                                                     remote_api_base_name="ANTHROPIC_API_BASE")
             '''FIXME:
             这里为了调用openrouter，做了一些特殊操作
-            1、model_id需要使用openrouter的格式，即openrouter/model_provider/model_name
-            2、需要创建openai的client，传入api base和api key
-            3、创建LiteLLMModel时，传入http_client，同时，还需要传入api key，否则会报错。
+            1、model_id需要使用openrouter的格式，即openrouter/anthropic/claude-3.7-sonnet
+            2、直接使用LiteLLM，传入api_key和api_base
+            3、不使用http_client，避免认证冲突
 
             '''
             models = [
@@ -230,12 +230,6 @@ class ModelManager(metaclass=Singleton):
                     "model_id": "openrouter/anthropic/claude-3.7-sonnet",
                 },
             ]
-
-            client = OpenAI(
-                api_key=api_key,
-                base_url=api_base,
-                http_client=HTTP_CLIENT,
-            )
             
             for model in models:
                 model_name = model["model_name"]
@@ -243,7 +237,7 @@ class ModelManager(metaclass=Singleton):
                 model = LiteLLMModel(
                     model_id=model_id,
                     api_key=api_key,
-                    http_client=client,
+                    api_base=api_base,
                     custom_role_conversions=custom_role_conversions,
                 )
                 self.registed_models[model_name] = model

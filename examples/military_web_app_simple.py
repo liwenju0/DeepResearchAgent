@@ -172,7 +172,19 @@ class MilitaryWebApp:
     async def initialize_system(self):
         """初始化军事参谋系统"""
         try:
-            config.init_config("configs/military_config.toml")
+            # 获取正确的配置文件路径
+            import os
+            from dotenv import load_dotenv
+            
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(current_dir)
+            config_path = os.path.join(project_root, "configs", "military_config.toml")
+            
+            # 显式加载环境变量
+            env_path = os.path.join(project_root, ".env")
+            load_dotenv(env_path, verbose=True)
+            
+            config.init_config(config_path)
             logger.init_logger(config.log_path)
             model_manager.init_models()
             self.military_chief = create_agent()
